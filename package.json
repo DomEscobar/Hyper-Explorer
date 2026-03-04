@@ -1,0 +1,26 @@
+{
+  "name": "hyper-explorer",
+  "version": "1.0.0",
+  "description": "Goal-directed autonomous web exploration agent",
+  "main": "src/hyper-explorer-mcp.mjs",
+  "type": "module",
+  "scripts": {
+    "explore": "node src/hyper-explorer-mcp.mjs",
+    "flow": "node run-flow.js",
+    "test": "npm run test:unit && npm run test:smoke && npm run test:integration",
+    "test:unit": "node tests/unit.test.js",
+    "test:smoke": "node tests/smoke.test.js",
+    "test:integration": "node test.js",
+    "register": "node src/hyper-explorer-mcp.mjs register_new_user_complete_flow",
+    "login": "node src/hyper-explorer-mcp.mjs login_existing_user_successful_login",
+    "squad": "node src/hyper-explorer-mcp.mjs create_fighter_squad",
+    "match": "node src/hyper-explorer-mcp.mjs start_and_complete_match",
+    "example:suite": "node example/real-world-tests/run-suite.mjs",
+    "example:benchmark": "node example/benchmarks/run-benchmark.mjs"
+  },
+  "dependencies": {
+    "playwright": "^1.40.0"
+  },
+  "keywords": ["automation", "testing", "playwright", "agent"],
+  "license": "MIT"
+}

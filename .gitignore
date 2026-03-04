@@ -1,0 +1,10 @@
+node_modules/
+memory/*.json
+memory/*.jsonl
+memory/*.log
+memory/*.mmd
+memory/*.png
+config.json
+.env
+.env.local
+*.log

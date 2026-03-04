@@ -1,0 +1,10 @@
+{
+  "description": "Example real-world test goals. required: true = suite fails if goal fails.",
+  "goals": [
+    { "id": "auth-register", "goal": "register_new_user_complete_flow", "required": true },
+    { "id": "auth-login", "goal": "login_existing_user_successful_login", "required": true },
+    { "id": "coverage", "goal": "explore_max_coverage", "required": false },
+    { "id": "roster", "goal": "create_fighter_squad", "required": false },
+    { "id": "match", "goal": "start_and_complete_match", "required": false }
+  ]
+}

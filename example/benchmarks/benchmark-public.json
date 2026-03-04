@@ -1,0 +1,21 @@
+{
+  "description": "Benchmark against public web apps. No local server required.",
+  "runsPerGoal": 1,
+  "targets": [
+    {
+      "name": "youtube",
+      "url": "https://www.youtube.com",
+      "goals": ["explore_max_coverage"]
+    },
+    {
+      "name": "the-internet",
+      "url": "https://the-internet.herokuapp.com",
+      "goals": ["explore_max_coverage"]
+    },
+    {
+      "name": "wikipedia",
+      "url": "https://www.wikipedia.org",
+      "goals": ["explore_max_coverage"]
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "description": "Benchmark: goals and runs per goal. URL from EXPLORER_URL or config.",
+  "runsPerGoal": 1,
+  "goals": [
+    "explore_max_coverage",
+    "login_existing_user_successful_login",
+    "register_new_user_complete_flow",
+    "create_fighter_squad",
+    "start_and_complete_match"
+  ]
+}

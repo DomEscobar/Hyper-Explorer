@@ -72,7 +72,8 @@ class MCPSessionManager {
 
         this.mcpProcess = spawn('npx', args, {
             stdio: ['pipe', 'pipe', 'pipe'],
-            cwd: __dirname
+            cwd: __dirname,
+            shell: true
         });
 
         this.mcpProcess.stderr.on('data', (data) => {
@@ -645,6 +646,11 @@ class MCPTacticalExecutor {
 
         this.graph.addNode(state, consoleMessages);
 
+        // 👁️ PHASE 3: Human-like reading time (Cognitive delay)
+        const readingDelay = Math.min(Math.max(elements.length * 0.1, 1.0), 4.0);
+        log(`[👁️ Sensory] Reading screen for ${readingDelay.toFixed(1)}s (${elements.length} elements)...`, 'INFO');
+        await this.mcp.browserWaitFor(readingDelay);
+
         return { state, elements, snapshot: snapshotResult, consoleMessages };
     }
 
@@ -775,39 +781,47 @@ class MCPTacticalExecutor {
         const beforeState = observation.state;
 
         try {
-            if (decision.type === 'fill_form') {
-                // Fill form fields
-                const fields = decision.textboxes.map((box, i) => ({
-                    ref: box.ref,
-                    value: decision.values[i]
-                }));
+            if (decision.type === 'click') {
+                if (!decision.ref) return { success: false, reason: 'missing_ref' };
+                
+                // 🖐️ PHASE 3: Motor movement delay
+                const travelDelay = 0.5 + Math.random() * 0.8;
+                log(`[🖐️ Motor] Moving mouse to ref ${decision.ref} (${travelDelay.toFixed(1)}s travel time)...`, 'INFO');
+                await this.mcp.browserWaitFor(travelDelay);
 
-                for (const field of fields) {
-                    await this.mcp.browserType(field.ref, field.value);
-                    log(`Filled ref ${field.ref}`, 'ACTION');
-                }
-
-                // Then submit
-                const buttons = observation.elements.filter(e => e.role === 'button');
-                if (buttons.length > 0) {
-                    await this.mcp.browserClick(buttons[0].ref);
-                    this.visitedRefs.add(buttons[0].ref);
-                }
-            } else if (decision.type === 'click') {
-                await this.mcp.browserClick(decision.ref, decision.text);
+                await this.mcp.browserClick(decision.ref);
                 this.visitedRefs.add(decision.ref);
-                log(`Clicked ref ${decision.ref}`, 'ACTION');
+                log(`👆 Clicked ref ${decision.ref}`, 'ACTION');
+            } else if (decision.type === 'type') {
+                if (!decision.ref || !decision.value) return { success: false, reason: 'missing_ref_or_value' };
+                await this.mcp.browserType(decision.ref, decision.value, true);
+                
+                // 🖐️ PHASE 3: Organic typing delay
+                const typingDelay = Math.max(decision.value.length * 0.2, 0.5);
+                log(`[🖐️ Motor] Typed "${decision.value}" into ref ${decision.ref} (Simulated ${typingDelay.toFixed(1)}s typing delay)`, 'ACTION');
+                await this.mcp.browserWaitFor(typingDelay);
+
+                // Auto-press Enter to submit usually helps
+                await this.mcp.browserPressKey('Enter');
+            } else if (decision.type === 'back') {
+                log(`🔙 Going back`, 'ACTION');
+                await this.mcp.browserNavigateBack();
+            } else if (decision.type === 'done') {
+                log(`✅ LLM declared done`, 'ACTION');
+                return { success: true, navigated: false, type: 'done' };
+            } else {
+                return { success: false, reason: 'unknown_action_type: ' + decision.type };
             }
 
             // Wait for potential navigation
-            await this.mcp.browserWaitFor(1.5);
+            await this.mcp.browserWaitFor(2.0);
 
             // Get new state
             const afterUrl = this.mcp.sessionState.url || beforeState.url;
             const afterSnapshot = await this.mcp.browserSnapshot();
             const afterState = StateFingerprint.fromSnapshot(afterUrl, afterSnapshot);
 
-            this.graph.recordTransition(beforeState, decision.ref, decision.type, afterState);
+            this.graph.recordTransition(beforeState, decision.ref || decision.type, decision.type, afterState);
 
             const navigated = !beforeState.equals(afterState);
             const structuralChange = navigated && (beforeState.urlPath !== afterState.urlPath || beforeState.landmarkHash !== afterState.landmarkHash);
@@ -816,25 +830,18 @@ class MCPTacticalExecutor {
                 this.consecutiveStuck = 0;
                 this.visitedRefs.clear();
                 const delta = beforeState.delta(afterState);
-                log(`🧭 Structural nav (${delta.join(',')}): ${beforeState.getShortKey()} → ${afterState.getShortKey()}`, 'SUCCESS');
+                log(`🧭 Navigated (${delta.join(',')}): ${beforeState.getShortKey()} → ${afterState.getShortKey()}`, 'SUCCESS');
             } else {
                 this.consecutiveStuck++;
                 if (this.consecutiveStuck >= 2) {
-                    log(`⚠️ Stuck count: ${this.consecutiveStuck} (no structural change)`, 'WARNING');
+                    log(`⚠️ Stuck (${this.consecutiveStuck}/5) on ${beforeState.getShortKey()}`, 'WARNING');
                 }
             }
 
-            logJson(EXECUTION_LOG_FILE, {
-                action: decision.type, ref: decision.ref, source: decision.source,
-                from: beforeState.getShortKey(), to: afterState.getShortKey(),
-                navigated, structuralChange, stuckCount: this.consecutiveStuck
-            });
-
-            return { success: true, navigated, structuralChange, afterState };
-
+            return { success: true, navigated, structuralChange };
         } catch (e) {
-            log(`Action failed: ${e.message}`, 'WARNING');
-            return { success: false, reason: e.message, type: 'mcp_error' };
+            log(`Action failed: ${e.message}`, 'ERROR');
+            return { success: false, reason: e.message };
         }
     }
 

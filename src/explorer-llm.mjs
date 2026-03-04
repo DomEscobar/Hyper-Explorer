@@ -1,3 +1,4 @@
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 /**
  * Explorer LLM client: goal decomposition with optional codebase query.
  * Uses OpenRouter. When appRoot is set, LLM can return codebaseQuery; we run it and pass results back for subtasks.
@@ -29,7 +30,7 @@ export async function callLLM(messages, maxTokens = 300) {
             'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-            model: process.env.EXPLORER_LLM_MODEL || 'openrouter/stepfun/step-3.5-flash',
+            model: process.env.EXPLORER_LLM_MODEL || 'google/gemini-2.5-flash',
             messages,
             max_tokens: maxTokens,
             response_format: { type: 'json_object' }
@@ -126,4 +127,32 @@ Return ONLY one JSON object. Either {"codebaseQuery":[...]} or {"subtasks":[...]
     }
 
     return { subtasks: fallbackSubtasks(goal) };
+}
+
+
+export async function getCognitiveAction(goal, currentIntention, stateSummary, elements, actionHistory, consoleMessages, semanticContext = "") {
+    let stateStr = "Current URL: " + (stateSummary.url || "unknown") + " | Title: " + (stateSummary.title || "unknown");
+    
+    let elementsStr = elements.map(e => "[" + e.ref + "] " + e.role + ": " + e.text).join(" | ");
+    let historyStr = actionHistory.slice(-5).map(a => "Tried to " + (a.action?.type || "unknown") + " on ref " + (a.action?.ref || "none") + " -> " + (a.success ? "Success" : "Failed: " + a.reason)).join(" | ");
+
+    let prompt = "You are an advanced autonomous agent playing an app or game. Your overarching goal is: '" + goal + "'. Your current intention was: '" + (currentIntention || "Figure out what to do next") + "'. # CURRENT STATE " + stateStr + " # SEMANTIC MEMORY (Facts you learned about this app) " + (semanticContext || "No facts learned yet.") + " # RECENT MEMORY (Last 5 actions) " + (historyStr || "No recent actions.") + " # VISIBLE INTERACTABLE ELEMENTS " + (elementsStr || "No elements found.") + " Analyze the screen, state, semantic memory, and your history. Think about what to do next to progress toward the goal. If you learn a new universal rule about the app, you can output a 'newFact'. Return ONLY a JSON object with: { \"innerMonologue\": \"Your thought process\", \"currentIntention\": \"A short sentence describing your immediate next sub-goal\", \"action\": { \"type\": \"click\" | \"type\" | \"done\" | \"back\", \"ref\": \"element_ref_if_applicable\", \"value\": \"text_to_type_if_applicable\" }, \"newFact\": \"A newly learned fact about the app architecture (optional)\" }";
+
+    try {
+        const text = await callLLM([{ role: "user", content: prompt }], 500);
+        const out = parseJson(text);
+        return {
+            innerMonologue: out.innerMonologue || "Proceeding...",
+            currentIntention: out.currentIntention || goal,
+            action: out.action || { type: "done" },
+            newFact: out.newFact
+        };
+    } catch (e) {
+        console.error("LLM Cognitive Error:", e.message);
+        return {
+            innerMonologue: "Failed to think. Retrying blindly.",
+            currentIntention: currentIntention,
+            action: null
+        };
+    }
 }
